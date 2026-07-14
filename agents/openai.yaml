@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Agent"
+  short_description: "일반 Chrome·Edge 우선 웹 작업 에이전트"
+  default_prompt: "Use $web-agent to open the regular user Chrome or Edge first, then ask for final approval before any send or submit."

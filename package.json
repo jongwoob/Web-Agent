@@ -1,0 +1,37 @@
+{
+  "name": "web-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "agent": "tsx src/cli.ts",
+    "workflow:google-forms-jarvis": "tsx src/workflows/googleFormsJarvis.ts",
+    "workflow:google-forms-create": "tsx src/workflows/googleFormsJarvis.ts",
+    "workflow:google-sheets-export-csv": "tsx src/workflows/googleSheetsExportCsv.ts",
+    "workflow:google-sheets-export-file": "tsx src/workflows/googleWorkspaceExport.ts --kind sheets",
+    "workflow:google-docs-export": "tsx src/workflows/googleWorkspaceExport.ts --kind docs",
+    "workflow:google-slides-export": "tsx src/workflows/googleWorkspaceExport.ts --kind slides",
+    "workflow:google-calendar-event-create": "tsx src/workflows/googleCalendarEvent.ts",
+    "workflow:google-calendar-share-request": "tsx src/workflows/googleCalendarShareRequest.ts",
+    "workflow:google-drive-download": "tsx src/workflows/googleDriveDownload.ts",
+    "workflow:web-extract": "tsx src/workflows/webExtract.ts",
+    "workflow:open-user-browser": "tsx src/workflows/openUserBrowser.ts",
+    "workflow:naver-search-shopping-extract": "tsx src/workflows/webExtract.ts --profile-provider naver",
+    "workflow:gmail-search-read": "tsx src/workflows/mailSearchRead.ts --provider gmail",
+    "workflow:naver-mail-search-read": "tsx src/workflows/mailSearchRead.ts --provider naver",
+    "workflow:naver-mail-read-batch": "tsx src/workflows/naverMailReadBatch.ts",
+    "workflow:naver-mail": "tsx src/workflows/naverMail.ts",
+    "recipes:check": "tsx src/recipes/checkRecipes.ts",
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0",
+    "tsx": "^4.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0",
+    "vitest": "^3.2.0"
+  }
+}

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Web Agent Sample</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 32px;
+        color: #1f2937;
+      }
+
+      main {
+        max-width: 640px;
+      }
+
+      label,
+      input,
+      button {
+        display: block;
+        margin-top: 12px;
+      }
+
+      input {
+        width: 320px;
+        padding: 8px;
+      }
+
+      button {
+        padding: 8px 12px;
+      }
+
+      #status {
+        margin-top: 20px;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Web Agent Sample</h1>
+      <button id="hello-button">Say Hello</button>
+
+      <form id="search-form">
+        <label for="search-input">Search query</label>
+        <input id="search-input" name="q" placeholder="Search docs" />
+        <button type="submit">Search</button>
+      </form>
+
+      <button id="delete-account">Delete account</button>
+      <p id="status">Ready</p>
+    </main>
+
+    <script>
+      document.querySelector("#hello-button").addEventListener("click", () => {
+        document.querySelector("#status").textContent = "Hello clicked";
+      });
+
+      document.querySelector("#search-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const value = document.querySelector("#search-input").value;
+        document.querySelector("#status").textContent = `Search result for ${value}`;
+      });
+
+      document.querySelector("#delete-account").addEventListener("click", () => {
+        document.querySelector("#status").textContent = "Dangerous delete action";
+      });
+    </script>
+  </body>
+</html>
