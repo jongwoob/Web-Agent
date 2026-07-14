@@ -3,7 +3,7 @@ import type { Locator, Page } from "playwright";
 import { safePathSegment, updateStatus, type BrowserChoice } from "./shared.js";
 
 export type WebProvider = "google" | "naver" | "generic";
-export type ProviderLoginStatus = "already_authenticated" | "completed" | "not_detected" | "not_required";
+export type ProviderLoginStatus = "already_authenticated" | "completed" | "not_required";
 
 export interface ProviderPreflightOptions {
   provider: WebProvider;
@@ -23,16 +23,10 @@ export interface ProviderPreflightResult {
 }
 
 type KnownProvider = Exclude<WebProvider, "generic">;
-type ProviderHomeLoginState = "authenticated" | "login_required" | "unknown";
+type ProviderHomeLoginState = "authenticated" | "anonymous";
 
 const GOOGLE_HOME = "https://www.google.com/?hl=ko";
 const NAVER_HOME = "https://www.naver.com/";
-
-const GOOGLE_LOGIN_LINKS = [
-  'a[href*="accounts.google.com/ServiceLogin"]',
-  'a[href*="accounts.google.com/signin"]',
-  'a[href*="accounts.google.com/AccountChooser"]'
-].join(", ");
 
 const GOOGLE_ACCOUNT_TARGETS = [
   'a[aria-label*="Google 계정"]',
@@ -40,12 +34,6 @@ const GOOGLE_ACCOUNT_TARGETS = [
   'button[aria-label*="Google 계정"]',
   'button[aria-label*="Google Account"]',
   'a[href*="SignOutOptions"]'
-].join(", ");
-
-const NAVER_LOGIN_LINKS = [
-  'a[href*="nid.naver.com/nidlogin.login"]',
-  'a[href*="nidlogin.login"]',
-  'a[class*="link_login"]'
 ].join(", ");
 
 const NAVER_ACCOUNT_TARGETS = [
@@ -67,19 +55,16 @@ export async function runProviderPreflight(page: Page, options: ProviderPrefligh
   });
   await navigate(page, homeUrl, options.timeoutMs);
 
-  let loginStatus: ProviderLoginStatus = options.provider === "generic" ? "not_required" : "not_detected";
+  let loginStatus: ProviderLoginStatus = "not_required";
   if (options.provider !== "generic") {
     const provider = options.provider;
     const state = await inspectProviderHomeLoginState(page, provider);
-    if (state === "login_required") {
-      await completeProviderLogin(page, options, provider, homeUrl);
-      loginStatus = "completed";
-    } else if (state === "authenticated") {
+    if (state === "authenticated") {
       loginStatus = "already_authenticated";
     }
   }
 
-  await writePreflightStatus(options, "provider_home_ready", "Provider home preflight completed; opening the target service.", {
+  await writePreflightStatus(options, "provider_home_ready", "Provider home preflight completed; opening the target before requesting login.", {
     provider: options.provider,
     homeUrl,
     targetUrl: statusTargetUrl,
@@ -95,6 +80,19 @@ export async function runProviderPreflight(page: Page, options: ProviderPrefligh
       await navigate(page, targetUrl, options.timeoutMs);
     }
   }
+
+  const targetMessage =
+    loginStatus === "completed"
+      ? "Target opened after provider login completed."
+      : loginStatus === "already_authenticated"
+        ? "Target opened with the existing provider session."
+        : "Target opened without requiring provider login.";
+  await writePreflightStatus(options, "provider_target_ready", targetMessage, {
+    provider: options.provider,
+    homeUrl,
+    targetUrl: statusTargetUrl,
+    loginStatus
+  });
 
   return {
     provider: options.provider,
@@ -153,55 +151,12 @@ export function isProviderLoginUrl(value: string, provider: KnownProvider): bool
 }
 
 async function inspectProviderHomeLoginState(page: Page, provider: KnownProvider): Promise<ProviderHomeLoginState> {
-  if (isProviderLoginUrl(page.url(), provider)) {
-    return "login_required";
-  }
-
   const accountTargets = provider === "google" ? GOOGLE_ACCOUNT_TARGETS : NAVER_ACCOUNT_TARGETS;
   if (await hasVisible(page.locator(accountTargets))) {
     return "authenticated";
   }
 
-  const loginTargets = provider === "google" ? GOOGLE_LOGIN_LINKS : NAVER_LOGIN_LINKS;
-  if (await hasVisible(page.locator(loginTargets))) {
-    return "login_required";
-  }
-
-  return "unknown";
-}
-
-async function completeProviderLogin(
-  page: Page,
-  options: ProviderPreflightOptions,
-  provider: KnownProvider,
-  homeUrl: string
-): Promise<void> {
-  if (options.headless) {
-    await writePreflightStatus(options, "blocked_provider_login", "Provider login requires a headful browser.", {
-      provider,
-      homeUrl,
-      targetUrl: targetUrlForStatus(options)
-    });
-    throw new Error(`${provider} login is required. Rerun with --headful and log in directly in the browser window.`);
-  }
-
-  const selector = provider === "google" ? GOOGLE_LOGIN_LINKS : NAVER_LOGIN_LINKS;
-  const loginUrl = (await firstVisibleHref(page.locator(selector), page.url())) || fallbackLoginUrl(provider, homeUrl);
-  await writePreflightStatus(options, waitingStatus(provider), "Provider login is required. Complete login in the opened browser window.", {
-      provider,
-      homeUrl,
-      targetUrl: targetUrlForStatus(options)
-  });
-  console.log(`${provider} login is required. Complete login in the opened browser window.`);
-  console.log("Do not paste passwords, OTPs, or recovery codes into chat or the terminal.");
-
-  await navigate(page, loginUrl, options.timeoutMs);
-  await waitUntilProviderLoginLeaves(page, provider, options.loginTimeoutMs);
-  await navigate(page, homeUrl, options.timeoutMs);
-
-  if ((await inspectProviderHomeLoginState(page, provider)) === "login_required") {
-    throw new Error(`${provider} login did not complete in the dedicated browser profile.`);
-  }
+  return "anonymous";
 }
 
 async function waitForLoginFromCurrentPage(
@@ -255,28 +210,6 @@ async function hasVisible(locator: Locator): Promise<boolean> {
     }
   }
   return false;
-}
-
-async function firstVisibleHref(locator: Locator, baseUrl: string): Promise<string | undefined> {
-  const count = Math.min(await locator.count().catch(() => 0), 12);
-  for (let index = 0; index < count; index += 1) {
-    const item = locator.nth(index);
-    if (!(await item.isVisible({ timeout: 500 }).catch(() => false))) {
-      continue;
-    }
-    const href = await item.getAttribute("href").catch(() => null);
-    if (href) {
-      return new URL(href, baseUrl).toString();
-    }
-  }
-  return undefined;
-}
-
-function fallbackLoginUrl(provider: KnownProvider, homeUrl: string): string {
-  if (provider === "google") {
-    return `https://accounts.google.com/ServiceLogin?continue=${encodeURIComponent(homeUrl)}`;
-  }
-  return `https://nid.naver.com/nidlogin.login?mode=form&url=${encodeURIComponent(homeUrl)}`;
 }
 
 function waitingStatus(provider: KnownProvider): string {

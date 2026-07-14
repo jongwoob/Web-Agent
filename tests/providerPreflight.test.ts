@@ -99,67 +99,150 @@ describe("provider home preflight", () => {
     });
   });
 
-  it("follows Google home, login, home, then target", async () => {
+  it("opens Google public targets without logging in when the home shows a login link", async () => {
     await withPage(async (page) => {
       const documents: string[] = [];
-      let authenticated = false;
+      await routeDocuments(page, documents, (url) => {
+        if (url.hostname === "www.google.com" && url.pathname === "/") {
+          return '<a href="https://accounts.google.com/ServiceLogin">로그인</a>';
+        }
+        if (url.hostname === "www.google.com" && url.pathname === "/search") {
+          return "<main>Public Google search results</main>";
+        }
+        return "<main>unexpected</main>";
+      });
+
+      const result = await runProviderPreflight(page, {
+        provider: "google",
+        targetUrl: "https://www.google.com/search?q=web-agent",
+        timeoutMs: 3000,
+        loginTimeoutMs: 3000,
+        headless: true
+      });
+
+      expect(result.loginStatus).toBe("not_required");
+      expect(documents).toEqual(["https://www.google.com/?hl=ko", "https://www.google.com/search?q=web-agent"]);
+    });
+  });
+
+  it("opens Naver public targets without logging in when the home shows a login link", async () => {
+    await withPage(async (page) => {
+      const documents: string[] = [];
+      await routeDocuments(page, documents, (url) => {
+        if (url.hostname === "www.naver.com") {
+          return '<a href="https://nid.naver.com/nidlogin.login">로그인</a>';
+        }
+        if (url.hostname === "search.naver.com") {
+          return "<main>Public Naver search results</main>";
+        }
+        return "<main>unexpected</main>";
+      });
+
+      const result = await runProviderPreflight(page, {
+        provider: "naver",
+        targetUrl: "https://search.naver.com/search.naver?query=web-agent",
+        timeoutMs: 3000,
+        loginTimeoutMs: 3000,
+        headless: true
+      });
+
+      expect(result.loginStatus).toBe("not_required");
+      expect(documents).toEqual(["https://www.naver.com/", "https://search.naver.com/search.naver?query=web-agent"]);
+    });
+  });
+
+  it("waits for Google login only after a protected target redirects to the login page", async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), "web-agent-preflight-login-"));
+    const statusFile = path.join(directory, "status.json");
+    try {
+      await withPage(async (page) => {
+        const documents: string[] = [];
+        let authenticated = false;
+        await page.route("**/*", async (route) => {
+          if (route.request().resourceType() !== "document") {
+            await route.abort();
+            return;
+          }
+
+          const url = new URL(route.request().url());
+          documents.push(url.toString());
+          if (url.hostname === "www.google.com") {
+            const html = authenticated
+              ? '<a aria-label="Google 계정: 테스트" href="https://accounts.google.com/SignOutOptions">계정</a>'
+              : '<a href="https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fwww.google.com%2F%3Fhl%3Dko">로그인</a>';
+            await route.fulfill({ status: 200, contentType: "text/html", body: html });
+            return;
+          }
+          if (url.hostname === "accounts.google.com") {
+            await route.fulfill({ status: 200, contentType: "text/html", body: "<main>Google login</main>" });
+            return;
+          }
+          if (url.hostname === "mail.google.com") {
+            if (!authenticated) {
+              await route.fulfill({
+                status: 302,
+                headers: { location: "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmail.google.com%2Fmail%2Fu%2F0%2F" },
+                body: ""
+              });
+              return;
+            }
+            await route.fulfill({ status: 200, contentType: "text/html", body: "<main>Gmail target</main>" });
+            return;
+          }
+          await route.fulfill({ status: 404, contentType: "text/html", body: "not found" });
+        });
+
+        const preflight = runProviderPreflight(page, {
+          provider: "google",
+          targetUrl: "https://mail.google.com/mail/u/0/",
+          statusFile,
+          timeoutMs: 3000,
+          loginTimeoutMs: 3000,
+          headless: false
+        });
+
+        await waitForPreflightStatus(statusFile, "waiting_for_google_login");
+        authenticated = true;
+        await page.goto("https://mail.google.com/mail/u/0/", { waitUntil: "domcontentloaded" });
+        const result = await preflight;
+
+        expect(result.loginStatus).toBe("completed");
+        expect(documents.map((value) => new URL(value).hostname)).toEqual([
+          "www.google.com",
+          "mail.google.com",
+          "accounts.google.com",
+          "mail.google.com",
+          "mail.google.com"
+        ]);
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks interactive login in headless mode only after the target redirects to login", async () => {
+    await withPage(async (page) => {
+      const documents: string[] = [];
       await page.route("**/*", async (route) => {
         if (route.request().resourceType() !== "document") {
           await route.abort();
           return;
         }
-
         const url = new URL(route.request().url());
         documents.push(url.toString());
         if (url.hostname === "www.google.com") {
-          const html = authenticated
-            ? '<a aria-label="Google 계정: 테스트" href="https://accounts.google.com/SignOutOptions">계정</a>'
-            : '<a href="https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fwww.google.com%2F%3Fhl%3Dko">로그인</a>';
-          await route.fulfill({ status: 200, contentType: "text/html", body: html });
+          await route.fulfill({ status: 200, contentType: "text/html", body: '<a href="https://accounts.google.com/ServiceLogin">로그인</a>' });
           return;
         }
-        if (url.hostname === "accounts.google.com") {
-          authenticated = true;
+        if (url.hostname === "calendar.google.com") {
           await route.fulfill({
             status: 302,
-            headers: { location: "https://www.google.com/?hl=ko" },
+            headers: { location: "https://accounts.google.com/ServiceLogin" },
             body: ""
           });
           return;
         }
-        if (url.hostname === "mail.google.com") {
-          await route.fulfill({ status: 200, contentType: "text/html", body: "<main>Gmail target</main>" });
-          return;
-        }
-        await route.fulfill({ status: 404, contentType: "text/html", body: "not found" });
-      });
-
-      const result = await runProviderPreflight(page, {
-        provider: "google",
-        targetUrl: "https://mail.google.com/mail/u/0/",
-        timeoutMs: 3000,
-        loginTimeoutMs: 3000,
-        headless: false
-      });
-
-      expect(result.loginStatus).toBe("completed");
-      expect(documents.map((value) => new URL(value).hostname)).toEqual([
-        "www.google.com",
-        "accounts.google.com",
-        "www.google.com",
-        "mail.google.com"
-      ]);
-    });
-  });
-
-  it("blocks interactive login in headless mode before opening the target", async () => {
-    await withPage(async (page) => {
-      const documents: string[] = [];
-      await routeDocuments(page, documents, (url) => {
-        if (url.hostname === "www.google.com") {
-          return '<a href="https://accounts.google.com/ServiceLogin">로그인</a>';
-        }
-        return "<main>target must not open</main>";
+        await route.fulfill({ status: 200, contentType: "text/html", body: "<main>login</main>" });
       });
 
       await expect(
@@ -171,7 +254,11 @@ describe("provider home preflight", () => {
           headless: true
         })
       ).rejects.toThrow("--headful");
-      expect(documents).toEqual(["https://www.google.com/?hl=ko"]);
+      expect(documents.map((value) => new URL(value).hostname)).toEqual([
+        "www.google.com",
+        "calendar.google.com",
+        "accounts.google.com"
+      ]);
     });
   });
 
@@ -265,4 +352,17 @@ async function routeDocuments(
     documents.push(url.toString());
     await route.fulfill({ status: 200, contentType: "text/html", body: bodyFor(url) });
   });
+}
+
+async function waitForPreflightStatus(file: string, expectedStatus: string): Promise<void> {
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    const raw = await readFile(file, "utf8").catch(() => "");
+    const status = raw ? (JSON.parse(raw) as { status?: unknown }).status : undefined;
+    if (status === expectedStatus) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`Timed out waiting for preflight status: ${expectedStatus}`);
 }
