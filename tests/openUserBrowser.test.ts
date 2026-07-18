@@ -17,8 +17,10 @@ describe("regular user browser workflow", () => {
     const plan = buildUserBrowserLaunchPlan("https://forms.google.com", "chrome");
 
     expect(plan.provider).toBe("google");
-    expect(plan.homeArgs).toEqual(["--new-window", "https://www.google.com/?hl=ko"]);
+    expect(plan.reuseExistingBrowser).toBe(true);
+    expect(plan.homeArgs).toEqual(["https://www.google.com/?hl=ko"]);
     expect(plan.targetArgs).toEqual(["https://forms.google.com/"]);
+    expect(plan.homeArgs.join(" ")).not.toContain("new-window");
     expect(plan.homeArgs.join(" ")).not.toContain("user-data-dir");
     expect(plan.targetArgs.join(" ")).not.toContain("user-data-dir");
   });

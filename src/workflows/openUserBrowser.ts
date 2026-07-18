@@ -27,6 +27,7 @@ export interface UserBrowserLaunchPlan {
   provider: WebProvider;
   homeUrl: string;
   targetUrl: string;
+  reuseExistingBrowser: boolean;
   homeArgs: string[];
   targetArgs: string[];
 }
@@ -44,7 +45,8 @@ async function main(): Promise<void> {
     profile: "regular-user",
     provider: plan.provider,
     homeUrl: plan.homeUrl,
-    targetUrl: plan.targetUrl
+    targetUrl: plan.targetUrl,
+    reuseExistingBrowser: plan.reuseExistingBrowser
   });
 
   await launchVisibleBrowser(executable, plan.homeArgs);
@@ -57,6 +59,7 @@ async function main(): Promise<void> {
     provider: plan.provider,
     homeUrl: plan.homeUrl,
     targetUrl: plan.targetUrl,
+    reuseExistingBrowser: plan.reuseExistingBrowser,
     elapsedMs: Date.now() - started
   });
 }
@@ -78,7 +81,8 @@ export function buildUserBrowserLaunchPlan(url: string, browser: UserBrowserChoi
     provider,
     homeUrl,
     targetUrl,
-    homeArgs: ["--new-window", homeUrl],
+    reuseExistingBrowser: true,
+    homeArgs: [homeUrl],
     targetArgs: [targetUrl]
   };
 }

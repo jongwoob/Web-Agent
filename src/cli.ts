@@ -33,11 +33,13 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const runDir = await createRunDir();
   const provider = inferWebProvider(args.url);
+  const controlledSessionTargetUrl = args.headful && args.browser !== "chromium" ? args.url : undefined;
   const controller = await BrowserController.launch({
     headful: args.headful,
     timeoutMs: args.timeoutMs,
     browser: args.browser,
-    userDataDir: providerAgentProfileDir(provider, args.browser, args.url)
+    userDataDir: controlledSessionTargetUrl ? undefined : providerAgentProfileDir(provider, args.browser, args.url),
+    controlledSessionTargetUrl
   });
   const planner = createPlanner({ model: args.model });
   const cache = new ObservationCache();
@@ -241,7 +243,10 @@ function summarizeObservation(observation: Awaited<ReturnType<typeof observePage
   };
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+main().then(
+  () => process.exit(0),
+  (error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+);

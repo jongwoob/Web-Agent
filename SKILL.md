@@ -15,13 +15,22 @@ npm run workflow:open-user-browser -- --url <url> --browser edge
 ```
 
 - Google은 Google 홈, Naver는 Naver 홈, 그 밖의 사이트는 해당 origin 홈을 먼저 연다.
-- 일반 사용자 Chrome 또는 Edge를 열 때 profile 경로, cookie, password, OTP, recovery code를 복사하거나 전달하지 않는다.
+- 일반 사용자 Chrome 또는 Edge를 열 때 profile 경로, cookie, password, OTP, recovery code를 복사하거나 전달하지 않는다. `--new-window`를 강제하지 않고 이미 열린 일반 browser 인스턴스에 홈과 목적 URL을 전달한다.
 - 일반 사용자 profile이 실행 중이면 Playwright가 안전하게 연결할 수 없으므로 전용 제어 profile로 조용히 전환하지 않는다. 자동 조작이 필요하면 사용자의 직접 진행 또는 별도 제어 session 허용 여부를 먼저 확인한다.
 - 제공자 홈에 로그인 버튼이 있어도 로그인부터 시도하지 않는다. 목적 페이지를 익명으로 먼저 열고, 실제 로그인 화면으로 전환된 경우에만 사용자의 직접 로그인을 기다린다.
 
+## 브라우저와 탭 재사용
+
+- 일반 사용자 browser의 기존 탭은 Playwright로 검사하거나 교체하지 않는다. 현재 작업에 같은 일반 browser를 사용할 수 있으면 홈과 목적 URL을 같은 browser 인스턴스에 전달하고, 사용자가 직접 이어서 작업한다.
+- DOM 자동 조작을 명시적으로 허용받은 전용 제어 session은 사이트별로 유지한다. 같은 origin의 유휴 탭을 먼저 재사용하고, 없으면 빈 탭을 사용한다.
+- 다른 작업이 진행 중인 탭은 점유하거나 이동시키지 않는다. 재생·업로드처럼 계속 동작하는 탭은 예약해 교체하지 않는다. 재사용 가능한 전용 session이 있을 때는 새 browser를 열지 않는다.
+- 새 전용 제어 browser는 재사용 가능한 session이 없고 사용자 허용이 있을 때만 만들며, 제어 session의 원격 디버깅 포트는 `127.0.0.1`에만 바인딩한다.
+- `npm run agent -- --headful`은 명시적 제어 허용이 있을 때 이 재사용 경로를 사용한다. headless 범용 작업은 기존 격리 profile 방식을 유지한다.
+
 ## 안전 규칙
 
-- 모든 Chromium 실행은 `chromiumSandbox: true`를 사용한다. `--no-sandbox`와 `chromiumSandbox: false`는 사용하지 않는다.
+- Playwright로 실행하는 Chromium은 `chromiumSandbox: true`를 사용한다. 일반·전용 Chrome 또는 Edge 실행은 기본 샌드박스를 유지하고 `--no-sandbox`를 사용하지 않는다.
+- 전용 제어 browser에도 `--no-sandbox`와 오디오 음소거 옵션을 전달하지 않는다.
 - 전송, 제출, 공유, 구매, 삭제, 계정 변경, 게시, 민감 정보 입력은 최종 화면과 내용을 준비한 뒤 사용자에게 명시적으로 승인받는다.
 - 로그인·다중 인증은 목적 페이지가 실제로 요구할 때만 사용자가 browser 창에서 직접 완료한다.
 - 다운로드와 실행 산출물은 `work/`에 저장하고, 민감 데이터가 포함될 수 있는 `work/`, `.agent-runs/`, `.browser-profiles/`, `.env`는 Git에 올리지 않는다.

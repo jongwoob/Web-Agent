@@ -15,6 +15,7 @@
     "workflow:google-calendar-share-request": "tsx src/workflows/googleCalendarShareRequest.ts",
     "workflow:google-drive-download": "tsx src/workflows/googleDriveDownload.ts",
     "workflow:web-extract": "tsx src/workflows/webExtract.ts",
+    "workflow:youtube-playlist-play": "tsx src/workflows/youtubePlaylistPlay.ts",
     "workflow:open-user-browser": "tsx src/workflows/openUserBrowser.ts",
     "workflow:naver-search-shopping-extract": "tsx src/workflows/webExtract.ts --profile-provider naver",
     "workflow:gmail-search-read": "tsx src/workflows/mailSearchRead.ts --provider gmail",

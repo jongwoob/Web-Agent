@@ -1,4 +1,5 @@
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { acquireControlledBrowserSession } from "./workflows/controlledBrowserSession.js";
 import { browserChannel, type BrowserChoice } from "./workflows/shared.js";
 
 export interface BrowserControllerOptions {
@@ -6,20 +7,37 @@ export interface BrowserControllerOptions {
   timeoutMs: number;
   browser?: BrowserChoice;
   userDataDir?: string;
+  controlledSessionTargetUrl?: string;
 }
 
 export class BrowserController {
   readonly browser: Browser;
   readonly context: BrowserContext;
   readonly page: Page;
+  private readonly releaseControlledSession?: () => Promise<void>;
 
-  private constructor(browser: Browser, context: BrowserContext, page: Page) {
+  private constructor(
+    browser: Browser,
+    context: BrowserContext,
+    page: Page,
+    releaseControlledSession?: () => Promise<void>
+  ) {
     this.browser = browser;
     this.context = context;
     this.page = page;
+    this.releaseControlledSession = releaseControlledSession;
   }
 
   static async launch(options: BrowserControllerOptions): Promise<BrowserController> {
+    if (options.headful && options.controlledSessionTargetUrl && options.browser !== "chromium") {
+      const session = await acquireControlledBrowserSession({
+        browser: options.browser || "chrome",
+        targetUrl: options.controlledSessionTargetUrl,
+        timeoutMs: options.timeoutMs
+      });
+      return new BrowserController(session.browser, session.context, session.page, session.release);
+    }
+
     if (options.userDataDir) {
       const context = await chromium.launchPersistentContext(options.userDataDir, {
         channel: browserChannel(options.browser || "chrome"),
@@ -54,6 +72,10 @@ export class BrowserController {
   }
 
   async close(): Promise<void> {
+    if (this.releaseControlledSession) {
+      await this.releaseControlledSession();
+      return;
+    }
     await this.context.close().catch(() => undefined);
     await this.browser.close().catch(() => undefined);
   }
