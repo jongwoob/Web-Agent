@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isAudiblyPlaying, isYoutubeAdPlayerClass, parseYoutubePlaylistUrl } from "../src/workflows/youtubePlaylistPlay.js";
+import {
+  isAudiblyPlaying,
+  isYoutubeAdPlayerClass,
+  parseYoutubePlaylistSession,
+  parseYoutubePlaylistUrl
+} from "../src/workflows/youtubePlaylistPlay.js";
 
 describe("YouTube playlist playback workflow", () => {
   it("normalizes a shared playlist URL without retaining unrelated tracking parameters", () => {
@@ -41,5 +46,11 @@ describe("YouTube playlist playback workflow", () => {
   it("does not treat a YouTube advertisement as playlist playback", () => {
     expect(isYoutubeAdPlayerClass("html5-video-player ad-showing playing-mode")).toBe(true);
     expect(isYoutubeAdPlayerClass("html5-video-player playing-mode")).toBe(false);
+  });
+
+  it("uses the paired regular user browser by default and retains an explicit controlled fallback", () => {
+    expect(parseYoutubePlaylistSession()).toBe("regular");
+    expect(parseYoutubePlaylistSession("user-browser")).toBe("regular");
+    expect(parseYoutubePlaylistSession("controlled")).toBe("controlled");
   });
 });

@@ -1,0 +1,91 @@
+:root {
+  color: #172033;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f5f7fa;
+}
+
+main {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+label {
+  display: grid;
+  gap: 5px;
+  color: #4d5b70;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #b7c0ce;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  padding: 7px 8px;
+}
+
+input:focus {
+  border-color: #1b6ac9;
+  outline: 2px solid #c7ddf7;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+button {
+  min-height: 34px;
+  border: 1px solid #1b6ac9;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #14539e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  padding: 6px 8px;
+}
+
+button#save {
+  grid-column: 1 / -1;
+  background: #1769c2;
+  color: #ffffff;
+}
+
+button:hover {
+  background: #e9f2fc;
+}
+
+button#save:hover {
+  background: #0f59a7;
+}
+
+#status {
+  min-height: 17px;
+  margin: 0;
+  color: #5a6574;
+  font-size: 12px;
+  line-height: 1.35;
+}

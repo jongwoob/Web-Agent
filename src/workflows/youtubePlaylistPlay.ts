@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -5,14 +6,22 @@ import type { Locator, Page } from "playwright";
 import { acquireControlledBrowserSession, type ControlledBrowserChoice } from "./controlledBrowserSession.js";
 import { runProviderPreflight } from "./providerPreflight.js";
 import { numberValue, parseBrowser, parseFlagArgs, stringValue, updateStatus } from "./shared.js";
+import {
+  loadUserBrowserBridgeConfig,
+  startUserBrowserBridge,
+  type UserBrowserPlaybackState
+} from "./userBrowserBridge.js";
 
 interface WorkflowArgs {
   playlistUrl: string;
   browser: ControlledBrowserChoice;
+  session: YoutubePlaylistSession;
   statusFile: string;
   screenshotFile: string;
   timeoutMs: number;
 }
+
+export type YoutubePlaylistSession = "regular" | "controlled";
 
 export interface YoutubePlaylist {
   playlistId: string;
@@ -34,6 +43,11 @@ const DEFAULT_SCREENSHOT_FILE = "work/youtube-playlist-play-screenshot.png";
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const playlist = parseYoutubePlaylistUrl(args.playlistUrl);
+  if (args.session === "regular") {
+    await playInRegularUserBrowser(args, playlist);
+    return;
+  }
+
   const started = Date.now();
   let session: Awaited<ReturnType<typeof acquireControlledBrowserSession>> | undefined;
   let reservePlaybackTab = false;
@@ -97,6 +111,67 @@ async function main(): Promise<void> {
   }
 }
 
+async function playInRegularUserBrowser(args: WorkflowArgs, playlist: YoutubePlaylist): Promise<void> {
+  const started = Date.now();
+  const config = await loadUserBrowserBridgeConfig(args.browser);
+  if (!config) {
+    await updateStatus(args.statusFile, "blocked_user_browser_bridge_setup", "일반 사용자 브라우저 연결 설정이 필요합니다.", {
+      browser: args.browser,
+      playlistUrl: playlist.url,
+      setupCommand: `npm run workflow:user-browser-bridge-setup -- --browser ${args.browser}`,
+      elapsedMs: Date.now() - started
+    });
+    throw new Error("일반 사용자 브라우저 연결 확장을 먼저 설정하세요.");
+  }
+
+  let bridge: Awaited<ReturnType<typeof startUserBrowserBridge>> | undefined;
+  try {
+    bridge = await startUserBrowserBridge({ config });
+    await updateStatus(args.statusFile, "waiting_for_user_browser_bridge", "일반 사용자 브라우저 연결 확장을 기다리고 있습니다.", {
+      browser: args.browser,
+      profile: "regular-user",
+      playlistUrl: playlist.url
+    });
+    await bridge.waitForExtension(Math.max(args.timeoutMs, 45_000));
+    const result = await bridge.playYoutubePlaylist({
+      playlistUrl: playlist.url,
+      preflightHomeUrl: "https://www.youtube.com/",
+      timeoutMs: args.timeoutMs
+    });
+    if (!isAudiblyPlaying(result.playback) || result.playback.tabMuted) {
+      throw new Error("일반 사용자 브라우저에서 YouTube 소리 재생 상태를 확인하지 못했습니다.");
+    }
+    if (result.screenshotDataUrl) {
+      await saveScreenshotDataUrl(args.screenshotFile, result.screenshotDataUrl);
+    }
+
+    await updateStatus(args.statusFile, "completed", "일반 사용자 브라우저의 YouTube 재생 목록이 소리가 켜진 상태로 재생 중입니다.", {
+      browser: args.browser,
+      profile: "regular-user",
+      session: "regular",
+      playlistUrl: playlist.url,
+      currentUrl: result.currentUrl,
+      reusedTab: result.reusedTab,
+      playback: result.playback,
+      screenshotFile: result.screenshotDataUrl ? args.screenshotFile : undefined,
+      elapsedMs: Date.now() - started
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await updateStatus(args.statusFile, "failed", "일반 사용자 브라우저의 YouTube 재생 상태를 확인하지 못했습니다.", {
+      browser: args.browser,
+      profile: "regular-user",
+      session: "regular",
+      playlistUrl: playlist.url,
+      error: message,
+      elapsedMs: Date.now() - started
+    });
+    throw error;
+  } finally {
+    await bridge?.close();
+  }
+}
+
 export function parseYoutubePlaylistUrl(value: string): YoutubePlaylist {
   const input = new URL(value);
   const hostname = input.hostname.toLowerCase();
@@ -115,7 +190,7 @@ export function parseYoutubePlaylistUrl(value: string): YoutubePlaylist {
   };
 }
 
-export function isAudiblyPlaying(state: PlaybackState): boolean {
+export function isAudiblyPlaying(state: PlaybackState | UserBrowserPlaybackState): boolean {
   return state.exists && !state.paused && !state.muted && state.volume > 0 && state.currentTime > 0 && state.readyState >= 2;
 }
 
@@ -271,10 +346,34 @@ function parseArgs(argv: string[]): WorkflowArgs {
   return {
     playlistUrl,
     browser,
+    session: parseYoutubePlaylistSession(stringValue(values, "session")),
     statusFile: stringValue(values, "status-file") || DEFAULT_STATUS_FILE,
     screenshotFile: stringValue(values, "screenshot-file") || DEFAULT_SCREENSHOT_FILE,
     timeoutMs: numberValue(values, "timeout-ms", 30000)
   };
+}
+
+export function parseYoutubePlaylistSession(value?: string): YoutubePlaylistSession {
+  if (!value) {
+    return "regular";
+  }
+  const normalized = value.trim().toLowerCase();
+  if (["regular", "user", "user-browser", "normal"].includes(normalized)) {
+    return "regular";
+  }
+  if (["controlled", "dedicated", "control"].includes(normalized)) {
+    return "controlled";
+  }
+  throw new Error("--session must be regular or controlled.");
+}
+
+async function saveScreenshotDataUrl(file: string, dataUrl: string): Promise<void> {
+  const matched = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  if (!matched) {
+    throw new Error("일반 사용자 브라우저 screenshot 형식이 올바르지 않습니다.");
+  }
+  await mkdir(path.dirname(path.resolve(file)), { recursive: true });
+  await writeFile(file, Buffer.from(matched[1], "base64"));
 }
 
 if (isDirectRun()) {

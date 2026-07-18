@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Web-Agent 일반 브라우저 연결",
+  "version": "0.1.0",
+  "description": "승인한 사이트에서만 Web-Agent 작업을 일반 Chrome 또는 Edge 탭으로 전달합니다.",
+  "permissions": ["alarms", "scripting", "storage", "tabs"],
+  "host_permissions": ["http://127.0.0.1/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Web-Agent 연결"
+  }
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Web-Agent 연결</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Web-Agent 연결</h1>
+      <label>
+        <span>로컬 주소</span>
+        <input id="endpoint" autocomplete="off" inputmode="url" placeholder="http://127.0.0.1:0000" />
+      </label>
+      <label>
+        <span>연결 키</span>
+        <input id="token" type="password" autocomplete="off" />
+      </label>
+      <div class="actions">
+        <button id="save" type="button">저장</button>
+        <button id="youtube" type="button">YouTube 권한</button>
+        <button id="current-site" type="button">현재 사이트 권한</button>
+      </div>
+      <p id="status" role="status"></p>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

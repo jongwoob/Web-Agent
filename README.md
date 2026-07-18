@@ -20,7 +20,18 @@ npm run workflow:open-user-browser -- --url "https://forms.google.com" --browser
 npm run workflow:open-user-browser -- --url "https://www.naver.com" --browser edge
 ```
 
-이 명령은 `--new-window`를 강제하지 않습니다. 이미 열린 일반 Chrome 또는 Edge가 있으면 같은 브라우저 인스턴스에 홈과 목적 URL을 전달해 탭으로 엽니다. 실행 중인 일반 사용자 프로필에는 Playwright가 안전하게 연결해 DOM을 조작할 수 없으므로, 기존 탭을 검사·클릭·교체하지 않습니다. 이 경우 사용자의 직접 진행 또는 별도 제어 세션 허용 여부를 먼저 확인합니다.
+이 명령은 `--new-window`를 강제하지 않습니다. 이미 열린 일반 Chrome 또는 Edge가 있으면 같은 브라우저 인스턴스에 홈과 목적 URL을 전달해 탭으로 엽니다. 실행 중인 일반 사용자 프로필에는 Playwright가 안전하게 연결해 DOM을 조작할 수 없으므로, 기존 탭을 검사·클릭·교체하지 않습니다. 이 경우 사용자의 직접 진행 또는 일반 사용자 브라우저 연결 확장을 사용하는 승인된 레시피를 선택합니다.
+
+## 일반 사용자 브라우저 자동 조작
+
+일반 Chrome 또는 Edge의 실제 탭을 자동 조작해야 할 때는 `extensions/user-browser-bridge` 확장을 사용합니다. 확장은 기본적으로 어떤 인터넷 사이트도 읽지 못하며, 사용자가 YouTube 또는 현재 사이트 권한을 직접 허용한 origin에서만 레시피별 작업을 수행합니다.
+
+```powershell
+npm run workflow:user-browser-bridge-setup -- --browser chrome
+npm run workflow:youtube-playlist-play -- --playlist-url "https://www.youtube.com/playlist?list=<playlist-id>" --browser chrome
+```
+
+최초 설정, 탭 재사용 원칙, 연결 키 보관 방법은 [일반 Chrome과 Edge 연결](docs/일반-브라우저-연결.md)에서 확인합니다. 범용 agent나 아직 연결 확장을 지원하지 않는 workflow는 기존 전용 제어 세션을 계속 사용합니다.
 
 ## 제어 세션 재사용
 
@@ -63,6 +74,8 @@ $env:OPENAI_MODEL="gpt-4.1-mini"
 
 - Playwright로 실행하는 Chromium은 `chromiumSandbox: true`를 사용한다. 일반·전용 Chrome 또는 Edge 실행은 기본 샌드박스를 유지하고 `--no-sandbox`를 사용하지 않는다.
 - 전용 제어 세션의 원격 디버깅 포트는 `127.0.0.1`에만 바인딩하며, `--no-sandbox` 또는 오디오 음소거 옵션을 추가하지 않는다.
+- 일반 사용자 브라우저 연결은 `127.0.0.1`과 브라우저별 연결 키로만 인증하며, 처음 연결한 확장 ID와 다른 확장은 거절한다. 사이트 권한은 확장 팝업에서 사용자가 개별로 허용한다.
+- 일반 사용자 브라우저 연결 확장은 저장소에 포함된 레시피별 명령만 처리하며, 외부 코드나 모델이 만든 임의 JavaScript를 실행하지 않는다.
 - 비밀번호, OTP, 복구 코드, cookie, token은 채팅·터미널·문서·로그에 남기지 않는다.
 - `.browser-profiles/`, `.agent-runs/`, `work/`, `.env`는 공개 저장소에서 제외한다.
 - 신규 Naver 자동화는 운영 지침 검토 전까지 비활성 또는 검토 필요 상태로 유지한다.
