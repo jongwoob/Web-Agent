@@ -28,6 +28,14 @@ npm run workflow:open-user-browser -- --url <url> --browser edge
 - 새 전용 제어 browser는 재사용 가능한 session이 없고 사용자 허용이 있을 때만 만들며, 제어 session의 원격 디버깅 포트는 `127.0.0.1`에만 바인딩한다.
 - `npm run agent -- --headful`은 명시적 제어 허용이 있을 때 이 재사용 경로를 사용한다. headless 범용 작업은 기존 격리 profile 방식을 유지한다.
 
+## 레시피 입력
+
+- 사용자가 `레시피 입력 시작`이라고 말하면 `npm run recipes:input:start`로 입력 상태를 시작한다. 이름과 설명이 아직 없어도 시작할 수 있다.
+- 입력 중 사용자가 제공하는 이름, 설명, 호출 문구, URL, 페이지에서 수행한 행동, 검증 결과를 `npm run recipes:input:add`의 메타데이터·단계·메모·테스트 기록으로 누적한다. 사용자가 직접 browser를 조작하는 동안에는 이를 자동 조작으로 오인하지 않는다.
+- 사용자가 `레시피 입력 종료`이라고 말하면 `npm run recipes:input:finish`로 기본 `recipes/local/`에 저장하고 생성된 경로와 `active` 또는 `draft` 상태를 알린다. `recipes/local/`은 Git에서 제외한다.
+- 사용자가 공개 저장을 명시적으로 요청한 경우에만 `--publish`로 `recipes/<provider>/`에 저장한다. 이 명령은 Git add, commit, push를 자동 수행하지 않는다.
+- 비밀번호, OTP, cookie, 연결 키, 결제 정보, 개인 식별 정보는 레시피 입력에 기록하지 않는다. YouTube 재생목록 URL처럼 등록된 workflow와 명확히 연결되는 경우만 자동 실행 레시피로 만들고, 그 밖에는 `draft`로 저장한다.
+
 ## 안전 규칙
 
 - Playwright로 실행하는 Chromium은 `chromiumSandbox: true`를 사용한다. 일반·전용 Chrome 또는 Edge 실행은 기본 샌드박스를 유지하고 `--no-sandbox`를 사용하지 않는다.

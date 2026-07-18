@@ -24,6 +24,10 @@
     "workflow:naver-mail-read-batch": "tsx src/workflows/naverMailReadBatch.ts",
     "workflow:naver-mail": "tsx src/workflows/naverMail.ts",
     "recipes:check": "tsx src/recipes/checkRecipes.ts",
+    "recipes:input:start": "tsx src/recipes/recipeInput.ts --action start",
+    "recipes:input:add": "tsx src/recipes/recipeInput.ts --action add",
+    "recipes:input:finish": "tsx src/recipes/recipeInput.ts --action finish",
+    "recipes:input:status": "tsx src/recipes/recipeInput.ts --action status",
     "build": "tsc --noEmit",
     "test": "vitest run"
   },

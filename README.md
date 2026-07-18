@@ -83,3 +83,16 @@ $env:OPENAI_MODEL="gpt-4.1-mini"
 ## 레시피
 
 재사용 가능한 명령과 승인 조건은 `recipes/`에서 확인합니다. 활성 레시피는 `npm run recipes:check`로 검사할 수 있습니다.
+
+## 레시피 입력
+
+직접 브라우저를 조작하면서 레시피를 기록하려면 아래 명령을 사용합니다. 입력은 먼저 Git 제외 `recipes/local/`에 저장되므로 개인 URL이나 개인 작업 순서가 자동으로 공개되지 않습니다.
+
+```powershell
+npm run recipes:input:start
+npm run recipes:input:add -- --name "레시피 이름" --description "설명" --trigger "호출 문구"
+npm run recipes:input:add -- --step "페이지에서 수행한 행동" --url "https://example.com"
+npm run recipes:input:finish -- --id "recipe-id"
+```
+
+YouTube 재생목록 URL은 등록된 재생 workflow를 자동 연결합니다. 다른 수동 레시피는 `draft`로 보관하며, 검토한 범용 레시피만 `--publish`로 `recipes/<provider>/`에 저장합니다. 상세 순서는 [레시피 입력](docs/레시피-입력.md)에서 확인합니다.

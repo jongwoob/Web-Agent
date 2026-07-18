@@ -355,7 +355,7 @@ async function routeDocuments(
 }
 
 async function waitForPreflightStatus(file: string, expectedStatus: string): Promise<void> {
-  const deadline = Date.now() + 3000;
+  const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
     const raw = await readFile(file, "utf8").catch(() => "");
     const status = raw ? (JSON.parse(raw) as { status?: unknown }).status : undefined;

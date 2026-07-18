@@ -2,6 +2,7 @@ node_modules/
 .agent-runs/
 .browser-profiles/
 work/
+recipes/local/
 .env
 .env.*
 !.env.example
